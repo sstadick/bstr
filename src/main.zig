@@ -2,6 +2,7 @@
 const std = @import("std");
 const mem = std.mem;
 const testing = std.testing;
+const warn = @import("std").debug.warn;
 
 // Lowercase a bstr inplace
 pub fn toLowerInplace(input: []u8) void {
@@ -108,6 +109,29 @@ pub fn chomp(input: []const u8) []const u8 {
     return input[0..0];
 }
 
+pub const SplitIterator = struct {
+    string: []const u8,
+    index: ?usize,
+    delim: u8,
+
+    /// Returns a slice of the next field, or null if none
+    pub fn next(self: *SplitIterator) ?[]const u8 {
+        const start = self.index orelse return null;
+        const end = if (indexByte(self.string[start..], self.delim)) |delim_idx| blk: {
+            self.index = delim_idx + 1 + start;
+            break :blk delim_idx + start;
+        } else blk: {
+            self.index = null;
+            break :blk self.string.len;
+        };
+        return self.string[start..end];
+    }
+};
+
+pub fn split(string: []const u8, delimiter: u8) SplitIterator {
+    return SplitIterator{ .string = string, .index = 0, .delim = delimiter };
+}
+
 // const warn = @import("std").debug.warn;
 test "basic index functinoality" {
     testing.expect(index("The dog ran away.", "dog").? == 4);
@@ -138,4 +162,27 @@ test "chomp whitespace" {
 
     var niceString = "This is a nice string.";
     testing.expect(mem.eql(u8, niceString, chomp(niceString[0..])));
+}
+
+test "split iterator" {
+    const eql = mem.eql;
+    var it = split("abc|def||ghi", '|');
+    testing.expect(eql(u8, it.next().?, "abc"));
+    testing.expect(eql(u8, it.next().?, "def"));
+    testing.expect(eql(u8, it.next().?, ""));
+    testing.expect(eql(u8, it.next().?, "ghi"));
+    testing.expect(it.next() == null);
+
+    it = split("", '|');
+    testing.expect(eql(u8, it.next().?, ""));
+    testing.expect(it.next() == null);
+
+    it = split("|", '|');
+    testing.expect(eql(u8, it.next().?, ""));
+    testing.expect(eql(u8, it.next().?, ""));
+    testing.expect(it.next() == null);
+
+    it = split("hello", ' ');
+    testing.expect(eql(u8, it.next().?, "hello"));
+    testing.expect(it.next() == null);
 }
