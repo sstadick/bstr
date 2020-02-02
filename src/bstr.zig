@@ -37,7 +37,7 @@ pub fn contains(haystack: []const u8, needle: []const u8) bool {
 //     return mem.eql(u8, s1, s2);
 // }
 
-//TODO: make this simd aware
+//TODO: make this simd aware, should really sit down and try this with simd
 pub fn indexByte(haystack: []const u8, needle: u8) ?usize {
     for (haystack) |c, i| {
         if (c == needle) {
