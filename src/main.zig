@@ -1,19 +1,40 @@
 /// Some useful string related functions, ported from golang
 const std = @import("std");
+const mem = std.mem;
 const testing = std.testing;
 
-// TODO: probably a simd version of this to make as well
-pub fn bstrEq(s1: []const u8, s2: []const u8) bool {
-    if (s1.len != s2.len) {
-        return false;
-    }
-    for (s1) |c1, i| {
-        if (c1 != s2[i]) {
-            return false;
+// Lowercase a bstr inplace
+pub fn toLowerInplace(input: []u8) void {
+    for (input) |c, i| {
+        if ('A' <= c and c <= 'Z') {
+            const z = c + ('a' - 'A');
+            input[i] = z;
         }
     }
-    return true;
 }
+
+// Upercase a bstr inplace
+pub fn toUpperInplace(input: []u8) void {
+    for (input) |c, i| {
+        if ('a' <= c and c <= 'z') {
+            const z = c - ('a' - 'A');
+            input[i] = z;
+        }
+    }
+}
+
+/// Check if haystack contains needle
+pub fn contains(haystack: []const u8, needle: []const u8) bool {
+    if (index(haystack, needle)) |i| {
+        return true;
+    }
+    return false;
+}
+
+// TODO: probably a simd version of this to make as well
+// pub fn bstrEql(s1: []const u8, s2: []const u8) bool {
+//     return mem.eql(u8, s1, s2);
+// }
 
 //TODO: make this simd aware
 pub fn indexByte(haystack: []const u8, needle: u8) ?usize {
@@ -53,7 +74,7 @@ pub fn index(haystack: []const u8, needle: []const u8) ?usize {
                 return null;
             }
         }
-        if ((haystack[i + 1] == c1) and bstrEq(haystack[i .. i + n], needle)) {
+        if ((haystack[i + 1] == c1) and mem.eql(u8, haystack[i .. i + n], needle)) { //{bstrEq(haystack[i .. i + n], needle)) {
             return i;
         }
         // fails += 1
@@ -63,16 +84,58 @@ pub fn index(haystack: []const u8, needle: []const u8) ?usize {
     return null;
 }
 
-export fn add(a: i32, b: i32) i32 {
-    return a + b;
+/// Trim all trailing whitespace
+pub fn chomp(input: []const u8) []const u8 {
+    // look for the first ASCII non-space byte from the right
+    const in_len = input.len;
+    var start = in_len - 1;
+    while (start >= 0) {
+        const c = input[start];
+        const isWhitepace = switch (c) {
+            '\t' => true,
+            '\n' => true,
+            // '\v' => true, // vertical space, not recognized by zig
+            // '\f' => true, // form feed, not recognized by zig
+            '\r' => true,
+            ' ' => true,
+            else => false,
+        };
+        if (!isWhitepace) {
+            return input[0 .. start + 1];
+        }
+        start -= 1;
+    }
+    return input[0..0];
 }
 
 // const warn = @import("std").debug.warn;
-test "basic Index functinoality" {
+test "basic index functinoality" {
     testing.expect(index("The dog ran away.", "dog").? == 4);
     testing.expect(index("The dog ran away.", "cat") == null);
 }
 
-test "basic add functionality" {
-    testing.expect(add(3, 7) == 10);
+test "basic indexByte functionality" {
+    testing.expect(indexByte("The cat slept?", 't').? == 6);
+    testing.expect(indexByte("The cat slept?", '@') == null);
+}
+
+test "toUpperInplace" {
+    var string = "BIG BAD wolf";
+    toUpperInplace(string[0..]);
+    testing.expect(mem.eql(u8, string, "BIG BAD WOLF"));
+}
+
+test "toLowerInplace" {
+    var string = "BIG BAD wolf";
+    toLowerInplace(string[0..]);
+    testing.expect(mem.eql(u8, string, "big bad wolf"));
+}
+
+test "chomp whitespace" {
+    var string = "This is a gross ending\n\t\t    ";
+    var result = chomp(string[0..]);
+    testing.expect(mem.eql(u8, result, "This is a gross ending"));
+
+    var niceString = "This is a nice string.";
+    testing.expect(mem.eql(u8, niceString, chomp(niceString[0..])));
 }
